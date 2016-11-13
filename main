@@ -1,0 +1,167 @@
+import Tkinter as tk
+from PIL import Image, ImageTk
+import tkFileDialog
+import ttk
+
+def encode(image, msg):
+    msg = msg.lower()
+    pix = image.load()
+
+    imageCoded = Image.new(image.mode, image.size)
+    pixCoded = imageCoded.load()
+
+    i = 0
+    for x in range(imageCoded.size[0]):
+        for y in range(imageCoded.size[1]):
+
+            if i == 0:
+                lst = list(pix[x, y])
+                lst[0] = len(msg)
+                pixCoded[x, y] = tuple(lst)
+
+            elif i <= len(msg):
+                #print bin(pix[x,y][0])[7:9]
+                if ord(msg[i-1]) == 32:
+                    #space
+                    c = 32
+                if ord(msg[i - 1]) == 46:
+                    #dot
+                    c = 46
+                elif 97 <= ord(msg[i-1]) <= 122:
+                    #Lower case
+                    c = ord(msg[i-1]) - 96
+
+                #the character from message in ascii
+                ascii = '{:08b}'.format(c)
+                ascii = ascii[2:]
+
+                #change the last to bits
+                red = str(bin(pix[x, y][0])[:7]) + str(ascii[0:2])
+                green = str(bin(pix[x, y][1])[:7]) + str(ascii[2:4])
+                blue = str(bin(pix[x, y][2])[:7]) + str(ascii[4:6])
+
+                #make them to binary
+                red = int(red, 2)
+                green = int(green, 2)
+                blue = int(blue, 2)
+
+
+                lst = list(pix[x,y])
+                lst[0] = red
+                lst [1] = green
+                lst[2] = blue
+
+                pixCoded[x,y] = tuple(lst)
+
+            else:
+                #if there are no more message just copy
+                pixCoded[x, y] = pix[x,y]
+            i+=1
+    return imageCoded
+
+def decode(image):
+    pixDecoded = image.load()
+    i = 0
+    msg = ""
+    for x in range(image.size[0]):
+        for y in range(image.size[1]):
+            if i == 0:
+                msgLength = pixDecoded[x, y][0]
+            elif i <= msgLength:
+                lst = list(pixDecoded[x, y])
+                redAscii = bin(lst[0])[7:9]
+                greenAscii = bin(lst[1])[7:9]
+                blueAscii = bin(lst[2])[7:9]
+                binAscii = str(redAscii)+str(greenAscii)+str(blueAscii)
+                ascii = int(binAscii,2)
+                if ascii != 32 | ascii != 46:
+                    ascii += 96
+                #for some reason, only for 14 this is needed
+                if ascii == 14:
+                    ascii += 96
+                msg += chr(ascii)
+            i += 1
+    return msg
+
+x = False
+def encodeCommand():
+    global x
+    x = not x
+    if x == True:
+        path = tkFileDialog.askopenfilename(filetypes=[("Image File", '.png')])
+        im = Image.open(path)
+        coded = encode(im, entry2.get())
+        coded.save(entry1.get() + '.png')
+
+def decodeCommand():
+    path = tkFileDialog.askopenfilename(filetypes=[("Image File", '.png')])
+    im = Image.open(path)
+    msg = decode(im)
+    label = tk.Label(root, text=msg, bg="pink")
+    label.pack(side="top", fill="both", expand=True)
+
+class Page(tk.Frame):
+    def __init__(self, *args, **kwargs):
+        tk.Frame.__init__(self, *args, **kwargs)
+    def show(self):
+        self.lift()
+
+class Page1(Page):
+   def __init__(self, *args, **kwargs):
+       Page.__init__(self, *args, **kwargs)
+
+       label1 = tk.Label(self,text="Save picture as", bg="pink")
+       label1.pack(side="top", fill="both", expand=True)
+
+       global entry1
+       entry1 = tk.Entry(self)
+       entry1.pack(side="top", fill="both", expand=False)
+
+       label2 = tk.Label(self,text="Give message", bg="pink")
+       label2.pack(side="top", fill="both", expand=True)
+
+       global entry2
+       entry2 = tk.Entry(self)
+       entry2.pack(side="top", fill="both", expand=False)
+
+       button = tk.Button(self, text="Choose picture!", command=encodeCommand, bg="white")
+       button.pack()
+
+
+class Page2(Page):
+   def __init__(self, *args, **kwargs):
+       Page.__init__(self, *args, **kwargs)
+       button = tk.Button(self, text="Choose the image for decode", command=decodeCommand, bg="white")
+       button.pack()
+
+
+class MainView(tk.Frame):
+    def __init__(self, *args, **kwargs):
+        tk.Frame.__init__(self, *args, **kwargs)
+        p1 = Page1(self, bg="pink")
+        p2 = Page2(self, bg="pink")
+
+        buttonframe = tk.Frame(self, bg="pink")
+        container = tk.Frame(self, bg="pink")
+        buttonframe.pack(side="top", fill="x", expand=False)
+        container.pack(side="top", fill="both", expand=True)
+
+        p1.place(in_=container, x=0, y=0, relwidth=1, relheight=1)
+        p2.place(in_=container, x=0, y=0, relwidth=1, relheight=1)
+
+        b1 = tk.Button(buttonframe, text="Encode", command=p1.lift, bg="white")
+        b2 = tk.Button(buttonframe, text="Decode", command=p2.lift, bg="white")
+
+        b1.pack(side="left")
+        b2.pack(side="left")
+
+        p1.show()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    s=ttk.Style()
+    s.theme_use('clam')
+    main = MainView(root)
+    main.pack(side="top", fill="both", expand=True)
+    root.wm_geometry("200x200")
+    root.mainloop()
